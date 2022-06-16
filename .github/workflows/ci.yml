@@ -11,25 +11,39 @@ permissions:
   contents: read
   packages: write
 
+env:
+  GO_VERSION: 1.16
+  NODE_VERSION: 16
+
 jobs:
   lint-and-build:
     runs-on: ubuntu-latest
     steps:
-
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.16
 
       - name: Check out repo
         uses: actions/checkout@v2
         with:
           submodules: recursive
 
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go build dirs
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ env.GO_VERSION }}-
+
       - name: Install Node
         uses: actions/setup-node@v2
         with:
-          node-version: 16
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: ui/package-lock.json
 
@@ -40,10 +54,11 @@ jobs:
         run: make ui
 
       - name: Run Go linter
-        uses: golangci/golangci-lint-action@v2
+        uses: golangci/golangci-lint-action@v3
         with:
-          version: v1.43
+          version: latest
           skip-go-installation: true
+          skip-cache: true
 
       - name: Run Javascript linter
         run: cd ui && npx eslint --max-warnings=0 src/
